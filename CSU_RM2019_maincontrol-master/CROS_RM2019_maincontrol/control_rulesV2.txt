@@ -1,0 +1,80 @@
+
+步兵：
+
+WASDQE:	前后左右旋转，可组合
+XY:	云台移动
+[CTRL]:	底盘低速挡
+[SHIFT]:云台低速挡
+
+LEFT:	连射
+RIGHT:	点射
+
+B:	鼠标移动暂停
+[CTRL]:	底盘根据云台复位
+[SHIFT]:云台根据底盘复位，鼠标复位
+
+R:	启用底盘跟随
+F:	禁用底盘跟随
+
+
+
+英雄：
+
+WASDQE:	前后左右旋转，可组合
+XY:	云台移动
+[CTRL]:	底盘低速挡
+[SHIFT]:云台低速挡
+
+LEFT:	连射
+RIGHT:	点射
+
+B:	鼠标移动暂停
+[CTRL]:	底盘根据云台复位
+[SHIFT]:云台根据底盘复位，鼠标复位
+
+R:	启用底盘跟随
+F:	禁用底盘跟随
+
+Z+SHIFT:前底盘抬升
+Z+CTRL:	前底盘下降
+X+SHIFT:后底盘抬升
+X+CTRL:	后底盘下降
+
+G:摄像头倒转
+
+C+SHIFT:夹弹翻出
+C+CTRL:	夹弹翻回
+V+SHIFT:夹弹夹紧
+V+CTRL:	夹弹放松
+
+
+工程：
+
+WASDQE:	前后左右旋转，可组合
+[CTRL]:	底盘低速挡
+[SHIFT]:底盘高速挡
+
+B:	鼠标移动暂停
+
+Z+SHIFT:前底盘抬升
+Z+CTRL:	前底盘下降
+X+SHIFT:后底盘抬升
+X+CTRL:	后底盘下降
+
+G:摄像头倒转
+
+C+SHIFT:夹弹翻出
+C+CTRL:	夹弹翻回
+V+SHIFT:夹弹夹紧
+V+CTRL:	夹弹放松
+
+R+SHIFT:拖车钩放下
+R+CTRL:	拖车钩抬起
+
+F+SHIFT:给弹打开
+F+CTRL:	给弹关闭
+
+
+
+
+

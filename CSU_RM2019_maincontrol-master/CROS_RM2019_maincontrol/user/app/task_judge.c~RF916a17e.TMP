@@ -1,0 +1,253 @@
+#include "task_judge.h"
+
+#include "protocol.h"
+
+void judge_init(U8 *buff, U32 size)
+{
+  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOD, ENABLE);
+  RCC_APB1PeriphClockCmd(RCC_APB1Periph_UART5, ENABLE);
+  RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_DMA1, ENABLE);
+
+  GPIO_PinAFConfig(GPIOD, GPIO_PinSource2, GPIO_AF_UART5);
+
+  DMA_DeInit(DMA1_Stream0);
+
+  {
+    GPIO_InitTypeDef gpio;
+    gpio.GPIO_Pin = GPIO_Pin_2;
+    gpio.GPIO_Mode = GPIO_Mode_AF;
+    gpio.GPIO_OType = GPIO_OType_PP;
+    gpio.GPIO_Speed = GPIO_Speed_100MHz;
+    gpio.GPIO_PuPd = GPIO_PuPd_NOPULL;
+    GPIO_Init(GPIOD, &gpio);
+  }
+  {
+    USART_InitTypeDef usart;
+    USART_DeInit(UART5);
+    usart.USART_BaudRate = 115200;
+    usart.USART_WordLength = USART_WordLength_8b;
+    usart.USART_StopBits = USART_StopBits_1;
+    usart.USART_Parity = USART_Parity_No;
+    usart.USART_Mode = USART_Mode_Rx;
+    usart.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
+    USART_Init(UART5, &usart);
+  }
+  USART_Cmd(UART5, ENABLE);
+  {
+    DMA_InitTypeDef dma;
+    dma.DMA_Channel = DMA_Channel_4;
+    dma.DMA_PeripheralBaseAddr = (uint32_t) & (UART5->DR);
+    dma.DMA_Memory0BaseAddr = (uint32_t)buff;
+    dma.DMA_DIR = DMA_DIR_PeripheralToMemory;
+    dma.DMA_BufferSize = size;
+    dma.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
+    dma.DMA_MemoryInc = DMA_MemoryInc_Enable;
+    dma.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
+    dma.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
+    dma.DMA_Mode = DMA_Mode_Circular;
+    dma.DMA_Priority = DMA_Priority_VeryHigh;
+    dma.DMA_FIFOMode = DMA_FIFOMode_Disable;
+    dma.DMA_FIFOThreshold = DMA_FIFOThreshold_1QuarterFull;
+    dma.DMA_MemoryBurst = DMA_MemoryBurst_Single;
+    dma.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
+    DMA_Init(DMA1_Stream0, &dma);
+  }
+
+  DMA_ITConfig(DMA1_Stream0, DMA_IT_TC | DMA_IT_TE | DMA_IT_FE, ENABLE);
+  USART_DMACmd(UART5, USART_DMAReq_Rx, ENABLE);
+
+  USART_ClearITPendingBit(UART5, USART_IT_RXNE);
+  DMA_Cmd(DMA1_Stream0, ENABLE);
+}
+
+void reset_usart_dma(void)
+{
+  irq_close();
+  USART_ClearITPendingBit(UART5, USART_IT_RXNE);
+  DMA_Cmd(DMA1_Stream0, ENABLE);
+  irq_restore();
+}
+
+void close_usart_dma(void)
+{
+  irq_close();
+  DMA_Cmd(DMA1_Stream0, DISABLE);
+  DMA_ClearITPendingBit(DMA1_Stream0, DMA_IT_TCIF0);
+  irq_restore();
+}
+
+u32 uart_idle_G = 0;
+void task_judge(void *param)
+{
+  while (1)
+  {
+    if (uart_idle_G == 1)
+    {
+      uart_idle_G = 0;
+      //dma_buffer_to_unpack_buffer(&judge_rx_obj, UART_IDLE_IT);
+      //unpack_fifo_data(&judge_unpack_obj, DN_REG_ID);
+    }
+    task_delay_ms(5);
+  }
+}
+
+//USART2_IRQHandler()
+//{
+//	if()
+//	{
+
+//	}
+//}
+
+DMA_InitTypeDef DMA_InitStructure;
+uint8_t aTxBuffer[BUFFERSIZE] = "USART DMA Example: Communication between two USART using DMA";
+uint8_t aRxBuffer[BUFFERSIZE];
+static void USART_Config(void)
+{
+  USART_InitTypeDef USART_InitStructure;
+  GPIO_InitTypeDef GPIO_InitStructure;
+
+  /* Peripheral Clock Enable -------------------------------------------------*/
+  /* Enable GPIO clock */
+  RCC_AHB1PeriphClockCmd(USARTx_TX_GPIO_CLK | USARTx_RX_GPIO_CLK, ENABLE);
+
+  /* Enable USART clock */
+  USARTx_CLK_INIT(USARTx_CLK, ENABLE);
+
+  /* Enable the DMA clock */
+  RCC_AHB1PeriphClockCmd(USARTx_DMAx_CLK, ENABLE);
+
+  /* USARTx GPIO configuration -----------------------------------------------*/
+  /* Connect USART pins to AF7 */
+  GPIO_PinAFConfig(USARTx_TX_GPIO_PORT, USARTx_TX_SOURCE, USARTx_TX_AF);
+  GPIO_PinAFConfig(USARTx_RX_GPIO_PORT, USARTx_RX_SOURCE, USARTx_RX_AF);
+
+  /* Configure USART Tx and Rx as alternate function push-pull */
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF;
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_100MHz;
+  GPIO_InitStructure.GPIO_OType = GPIO_OType_PP;
+  GPIO_InitStructure.GPIO_PuPd = GPIO_PuPd_UP;
+
+  GPIO_InitStructure.GPIO_Pin = USARTx_TX_PIN;
+  GPIO_Init(USARTx_TX_GPIO_PORT, &GPIO_InitStructure);
+
+  GPIO_InitStructure.GPIO_Pin = USARTx_RX_PIN;
+  GPIO_Init(USARTx_RX_GPIO_PORT, &GPIO_InitStructure);
+
+  /* USARTx configuration ----------------------------------------------------*/
+  /* Enable the USART OverSampling by 8 */
+  USART_OverSampling8Cmd(USARTx, ENABLE);
+
+  /* USARTx configured as follows:
+         - BaudRate = 5250000 baud
+                    - Maximum BaudRate that can be achieved when using the Oversampling by 8
+                      is: (USART APB Clock / 8)
+                          Example:
+                             - (USART3 APB1 Clock / 8) = (42 MHz / 8) = 5250000 baud
+                             - (USART1 APB2 Clock / 8) = (84 MHz / 8) = 10500000 baud
+                    - Maximum BaudRate that can be achieved when using the Oversampling by 16
+                      is: (USART APB Clock / 16)
+                          Example: (USART3 APB1 Clock / 16) = (42 MHz / 16) = 2625000 baud
+                          Example: (USART1 APB2 Clock / 16) = (84 MHz / 16) = 5250000 baud
+         - Word Length = 8 Bits
+         - one Stop Bit
+         - No parity
+         - Hardware flow control disabled (RTS and CTS signals)
+         - Receive and transmit enabled
+   */
+  USART_InitStructure.USART_BaudRate = 5250000;
+  USART_InitStructure.USART_WordLength = USART_WordLength_8b;
+  USART_InitStructure.USART_StopBits = USART_StopBits_1;
+  /* When using Parity the word length must be configured to 9 bits */
+  USART_InitStructure.USART_Parity = USART_Parity_No;
+  USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
+  USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
+  USART_Init(USARTx, &USART_InitStructure);
+
+  /* Configure DMA controller to manage USART TX and RX DMA request ----------*/
+
+  /* Configure DMA Initialization Structure */
+  DMA_InitStructure.DMA_BufferSize = BUFFERSIZE;
+  DMA_InitStructure.DMA_FIFOMode = DMA_FIFOMode_Disable;
+  DMA_InitStructure.DMA_FIFOThreshold = DMA_FIFOThreshold_1QuarterFull;
+  DMA_InitStructure.DMA_MemoryBurst = DMA_MemoryBurst_Single;
+  DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;
+  DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
+  DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
+  DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)(&(USARTx->DR));
+  DMA_InitStructure.DMA_PeripheralBurst = DMA_PeripheralBurst_Single;
+  DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
+  DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
+  DMA_InitStructure.DMA_Priority = DMA_Priority_High;
+  /* Configure TX DMA */
+  DMA_InitStructure.DMA_Channel = USARTx_TX_DMA_CHANNEL;
+  DMA_InitStructure.DMA_DIR = DMA_DIR_MemoryToPeripheral;
+  DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)aTxBuffer;
+  DMA_Init(USARTx_TX_DMA_STREAM, &DMA_InitStructure);
+  /* Configure RX DMA */
+  DMA_InitStructure.DMA_Channel = USARTx_RX_DMA_CHANNEL;
+  DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralToMemory;
+  DMA_InitStructure.DMA_Memory0BaseAddr = (uint32_t)aRxBuffer;
+  DMA_Init(USARTx_RX_DMA_STREAM, &DMA_InitStructure);
+
+  /* Enable USART */
+  USART_Cmd(USARTx, ENABLE);
+}
+
+//void USART1_SendDMA(uint8_t* buf,int len)
+//{
+//    DMA_InitTypeDef DMA_InitStruct;
+//    DMA_ITConfig(DMA1_Channel4,DMA_IT_TC,ENABLE);
+
+//    DMA_Cmd(DMA1_Channel4,DISABLE);
+
+//    DMA_InitStruct.DMA_PeripheralBaseAddr = (u32)(&USART1->DR);
+//    DMA_InitStruct.DMA_MemoryBaseAddr = (u32)buf;
+//    DMA_InitStruct.DMA_DIR = DMA_DIR_PeripheralDST;
+//    DMA_InitStruct.DMA_BufferSize = len;
+//    DMA_InitStruct.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
+//    DMA_InitStruct.DMA_MemoryInc = DMA_MemoryInc_Enable;
+//    DMA_InitStruct.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
+//    DMA_InitStruct.DMA_MemoryDataSize = DMA_PeripheralDataSize_Byte;
+//    DMA_InitStruct.DMA_Mode = DMA_Mode_Normal;
+//    DMA_InitStruct.DMA_Priority = DMA_Priority_VeryHigh;
+//    DMA_InitStruct.DMA_M2M = DMA_M2M_Disable;
+//    DMA_Init(DMA1_Channel4,&DMA_InitStruct);
+
+//    DMA_Cmd(DMA1_Channel4,ENABLE);
+//}
+
+//*************IRQ**************
+
+//接受DMA
+//void DMA1_Channel5_IRQHandler()
+//{
+//    if(DMA_GetITStatus(DMA1_IT_TC5))
+//  {
+//      if(using_buf0 ==0)
+//    {
+//　　  　DMA1_Channel5->CMAR = (u32)RxBuf0;
+//        using_buf0 = 1;
+//    }
+//    else
+//    {
+//         DMA1_Channel5->CMAR = (u32)RxBuf1;
+//         using_buf0 = 0;
+//    }
+//    recv_flag = 1;
+//    DMA_ClearITPendingBit(DMA1_IT_TC5);
+//  }
+//}
+
+////发送DMA
+//void DMA1_Channel4_IRQHandler()
+//{
+//    if(DMA_GetITStatus(DMA1_IT_TC4))
+//    {
+//        //TODO:Add code here
+//        DMA_ClearITPendingBit(DMA1_IT_TC4);
+//    }
+//}
+
+
+printf("%s\n", );
